@@ -1,5 +1,6 @@
 const { Resource } = require("@opentelemetry/resources");
 const { SemanticResourceAttributes } = require("@opentelemetry/semantic-conventions");
+const { JaegerExporter } = require('@opentelemetry/exporter-jaeger'); // Jaeger Exporter
 const { SimpleSpanProcessor } = require("@opentelemetry/sdk-trace-base");
 const { NodeTracerProvider } = require("@opentelemetry/sdk-trace-node");
 const { trace } = require("@opentelemetry/api");
@@ -8,31 +9,30 @@ const { MongoDBInstrumentation } = require("@opentelemetry/instrumentation-mongo
 const { HttpInstrumentation } = require("@opentelemetry/instrumentation-http");
 const { registerInstrumentations } = require("@opentelemetry/instrumentation");
 
-const { JaegerExporter } = require('@opentelemetry/exporter-jaeger');
-
 module.exports = (serviceName) => {
-  const exporter = new JaegerExporter({
-    serviceName: serviceName,  
-    endpoint: 'http://localhost:14250',  
-  });
+    const exporter = new JaegerExporter({
+        serviceName: serviceName,
+        host: "localhost",  
+        port: 5775          
+    });
 
-  const provider = new NodeTracerProvider({
-    resource: new Resource({
-      [SemanticResourceAttributes.SERVICE_NAME]: serviceName,
-    }),
-  });
+    const provider = new NodeTracerProvider({
+        resource: new Resource({
+            [SemanticResourceAttributes.SERVICE_NAME]: serviceName,
+        }),
+    });
 
-  provider.addSpanProcessor(new SimpleSpanProcessor(exporter));
-  provider.register();
-  registerInstrumentations({
-    instrumentations: [
-      new ExpressInstrumentation(),
-      new MongoDBInstrumentation(),
-      new HttpInstrumentation(),
-    ],
-    tracerProvider: provider,
-  });
+    provider.addSpanProcessor(new SimpleSpanProcessor(exporter));
+    provider.register();
 
-  // Return the tracer
-  return trace.getTracer(serviceName);
+    registerInstrumentations({
+        instrumentations: [
+            new HttpInstrumentation(),
+            new ExpressInstrumentation(),
+            new MongoDBInstrumentation(),
+        ],
+        tracerProvider: provider,
+    });
+
+    return trace.getTracer(serviceName);
 };
